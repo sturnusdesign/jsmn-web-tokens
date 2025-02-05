@@ -82,15 +82,15 @@ extern "C"
         JSMN_ALG_HS256 = 0,
         JSMN_ALG_HS384 = 1,
         JSMN_ALG_HS512 = 2,
-        // JSMN_ALG_RS256,
-        // JSMN_ALG_RS384,
-        // JSMN_ALG_RS512,
+        JSMN_ALG_RS256,
+        JSMN_ALG_RS384,
+        JSMN_ALG_RS512,
         // JSMN_ALG_ES256,
         // JSMN_ALG_ES384,
         // JSMN_ALG_ES512,
         // JSMN_ALG_TERM
     } JSMN_ALG;
-#define JSMN_ALG_COUNT 3
+#define JSMN_ALG_COUNT 6
 
     typedef enum JSMN_ERROR
     {

@@ -28,7 +28,7 @@ static int
 b64uri_to_b64(char* dst, uint32_t* dlen, const char* src, uint32_t len)
 {
     int err = -1;
-    uint32_t i, t, z;
+    uint32_t i, z;
     if (*dlen > len + 4) {
         for (i = 0; i < len; i++) {
             switch (src[i]) {

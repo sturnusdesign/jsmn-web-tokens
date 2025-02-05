@@ -1,6 +1,7 @@
 #include "jsmn.h"
 
 #include "crypto/crypto.h"
+#include "crypto/crypto_mbedtls.h"
 #include "jsmn_tokens.h"
 #include <errno.h>
 #include <limits.h>
@@ -46,7 +47,15 @@ json_get_member(const char* buffer, const jsmntok_t tok[], const char* label)
     return NULL;
 }
 
-static const char* alg_strings[JSMN_ALG_COUNT] = { "HS256", "HS384", "HS512" };
+static const char* alg_strings[JSMN_ALG_COUNT] = 
+{ 
+    "HS256", 
+    "HS384", 
+    "HS512", 
+    "RS256", 
+    "RS384", 
+    "RS512" 
+};
 
 static const char*
 alg_to_str(JSMN_ALG alg)
@@ -62,7 +71,7 @@ str_to_alg(const char* str, uint32_t len)
     JSMN_ALG alg = JSMN_ALG_NONE;
     if (len == 5) {
         for (int i = 0; i < JSMN_ALG_COUNT; i++) {
-            if (!memcmp(str, alg_strings[i], 5)) {
+            if (!strncasecmp(str, alg_strings[i], 5)) {
                 alg = i;
                 break;
             }
@@ -75,11 +84,22 @@ static uint32_t
 alg_to_keysize(JSMN_ALG alg)
 {
     switch (alg) {
-        case JSMN_ALG_NONE: return 0; break;
-        case JSMN_ALG_HS256: return 32; break;
-        case JSMN_ALG_HS384: return 48; break;
-        case JSMN_ALG_HS512: return 64; break;
+        case JSMN_ALG_NONE: 
+            return 0;
+        case JSMN_ALG_HS256: 
+            return 32;
+        case JSMN_ALG_HS384: 
+            return 48;
+        case JSMN_ALG_HS512: 
+            return 64;
+        case JSMN_ALG_RS256: 
+            return 256;
+        case JSMN_ALG_RS384: 
+            return 384;
+        case JSMN_ALG_RS512: 
+            return 512;
     }
+    return 0;
 }
 
 static inline int
@@ -119,7 +139,7 @@ jsmn_token_init(
     token->alg = alg;
 
     // print the header
-    uint32_t dlen, l = snprintf(
+    uint32_t l = snprintf(
                        buffer,
                        sizeof(buffer),
                        "{\"alg\":\"%s\",\"typ\":\"JWT\"}",
@@ -147,7 +167,6 @@ jsmn_token_sign(jsmn_token_encode_s* t, const char* key, uint32_t keylen)
 {
     char hash[512] = { 0 };
     int err;
-    uint32_t l = 0;
 
     err = crypto_sign(hash, t->b, t->len, (byte*)key, keylen, t->alg);
     if (err) goto ERROR;
@@ -184,10 +203,12 @@ jsmn_token_decode(
     char b[JSMN_MAX_TOKEN_HEADER_LEN];
     const char* dot;
     int err = -1;
-    uint32_t l, slen = secret ? strlen(secret) : 0;
+    uint32_t l, slen;
     jsmn_value head, body, sig;
     const jsmntok_t *alg, *typ;
     jsmn_parser p;
+
+    slen = (secret != NULL) ? strlen(secret) : 0;
 
     memset(t, 0, sizeof(jsmn_token_decode_s));
 
@@ -215,7 +236,7 @@ jsmn_token_decode(
     typ = json_get_member(b, t->head, "typ");
     if (!(alg && typ &&                   //
           (typ->end - typ->start == 3) && //
-          !memcmp(&b[typ->start], "JWT", 3))) {
+          !strncasecmp(&b[typ->start], "JWT", 3))) {
         err = -1;
         goto ERROR;
     }
@@ -236,8 +257,8 @@ jsmn_token_decode(
     err = 0;
 
     if (!err && secret) {
-        char hash[512] = { 0 };
-        char test_sig[1024];
+        char hash[JSMN_MAX_TOKEN_LEN] = { 0 };
+        char test_sig[JSMN_MAX_TOKEN_LEN];
         l = sizeof(test_sig);
         err = crypto_sign(
             hash, head.p, head.len + body.len + 1, (byte*)secret, slen, t->alg);
