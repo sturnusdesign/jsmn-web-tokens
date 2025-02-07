@@ -132,16 +132,22 @@ jsmn_token_init(
     ...)
 {
     int err = -1;
-    char buffer[JSMN_MAX_TOKEN_LEN];
+    char *buffer = NULL;
     va_list list;
 
+    buffer = calloc(1, JSMN_MAX_TOKEN_LEN);
+
+    if (buffer == NULL)
+    {
+        goto ERROR;
+    }
     memset(token, 0, sizeof(jsmn_token_encode_s));
     token->alg = alg;
 
     // print the header
     uint32_t l = snprintf(
                        buffer,
-                       sizeof(buffer),
+                       JSMN_MAX_TOKEN_LEN,
                        "{\"alg\":\"%s\",\"typ\":\"JWT\"}",
                        alg_to_str(alg));
 
@@ -154,20 +160,26 @@ jsmn_token_init(
 
     // b64(header) . B64(payload)
     va_start(list, claims);
-    l = vsnprintf(buffer, sizeof(buffer), claims, list);
+    l = vsnprintf(buffer, JSMN_MAX_TOKEN_LEN, claims, list);
     va_end(list);
     err = append_b64(token, buffer, l);
 
 ERROR:
+    free(buffer);
     return err;
 }
 
 JSMN_TOKENS_API int
 jsmn_token_sign(jsmn_token_encode_s* t, const char* key, uint32_t keylen)
 {
-    char hash[512] = { 0 };
-    int err;
+    char *hash = NULL;
+    int err = -1;
 
+    hash = calloc(1, 512);
+    if(hash == NULL)
+    {
+        goto ERROR;
+    }
     err = crypto_sign(hash, t->b, t->len, (byte*)key, keylen, t->alg);
     if (err) goto ERROR;
 
@@ -177,6 +189,7 @@ jsmn_token_sign(jsmn_token_encode_s* t, const char* key, uint32_t keylen)
     if (err) goto ERROR;
 
 ERROR:
+    free(hash);
     return err;
 }
 
